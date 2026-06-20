@@ -1,0 +1,5 @@
+# Dependencias solo de desarrollo (tests y generación de muestras).
+# Runtime va en requirements.txt.
+
+pytest
+fpdf2
