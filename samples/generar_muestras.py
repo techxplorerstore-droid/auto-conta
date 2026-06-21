@@ -11,6 +11,7 @@ Uso:
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -20,11 +21,20 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from openpyxl import Workbook
 
+# Permitir importar el paquete al correr el script directamente desde samples/.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from auto_conta.normalize import calcular_dv  # noqa: E402
+
 # Equivalente moderno de `ln=True` (saltar a la siguiente línea desde el margen).
 _NL = {"new_x": XPos.LMARGIN, "new_y": YPos.NEXT}
 
 SAMPLES_DIR = Path(__file__).resolve().parent
 IVA_PORCENTAJE = Decimal("19")
+
+
+def _nit_con_dv(base: str) -> str:
+    """Devuelve el NIT formateado con su DV DIAN correcto: '<base>-<dv>'."""
+    return f"{base}-{calcular_dv(base)}"
 
 
 @dataclass
@@ -76,7 +86,7 @@ FACTURAS: List[FacturaMuestra] = [
         archivo="factura_papeleria.pdf",
         numero_factura="FE-2026-00187",
         proveedor="Papelería El Lápiz Dorado S.A.S.",
-        nit="900.451.882-3",
+        nit="900.451.882",
         direccion="Calle 45 # 12-30, Local 4",
         ciudad="Bogotá D.C.",
         fecha="2026-02-11",
@@ -92,7 +102,7 @@ FACTURAS: List[FacturaMuestra] = [
         archivo="factura_energia.pdf",
         numero_factura="EE-887234561",
         proveedor="Empresa de Energía Andina E.S.P.",
-        nit="830.112.998-1",
+        nit="830.112.998",
         direccion="Carrera 7 # 26-20, Piso 12",
         ciudad="Bogotá D.C.",
         fecha="2026-02-05",
@@ -107,7 +117,7 @@ FACTURAS: List[FacturaMuestra] = [
         archivo="factura_arriendo.pdf",
         numero_factura="ARR-2026-014",
         proveedor="Inmobiliaria Casa Verde Ltda.",
-        nit="811.305.447-6",
+        nit="811.305.447",
         direccion="Avenida El Poblado # 9-15, Of. 301",
         ciudad="Medellín",
         fecha="2026-02-01",
@@ -121,7 +131,7 @@ FACTURAS: List[FacturaMuestra] = [
         archivo="factura_transporte.pdf",
         numero_factura="TRP-55218",
         proveedor="Transportes Rápido Ya S.A.S.",
-        nit="901.778.213-9",
+        nit="901.778.213",
         direccion="Km 4 vía Cali - Yumbo, Bodega 7",
         ciudad="Cali",
         fecha="2026-02-18",
@@ -136,7 +146,7 @@ FACTURAS: List[FacturaMuestra] = [
         archivo="factura_tecnologia.pdf",
         numero_factura="SOL-2026-0421",
         proveedor="SoluTech Colombia S.A.S.",
-        nit="901.204.665-2",
+        nit="901.204.665",
         direccion="Calle 100 # 19-54, Torre B Of. 802",
         ciudad="Bogotá D.C.",
         fecha="2026-02-22",
@@ -154,7 +164,7 @@ FACTURAS_EXCEL: List[FacturaMuestra] = [
         archivo="factura_mantenimiento.xlsx",
         numero_factura="MNT-2026-0099",
         proveedor="Aseo y Mantenimiento Brillante S.A.S.",
-        nit="900.667.120-4",
+        nit="900.667.120",
         direccion="Diagonal 61 # 14-22",
         ciudad="Bogotá D.C.",
         fecha="2026-02-14",
@@ -169,7 +179,7 @@ FACTURAS_EXCEL: List[FacturaMuestra] = [
         archivo="factura_honorarios.xlsx",
         numero_factura="HON-2026-031",
         proveedor="Consultores Asociados JM Ltda.",
-        nit="860.998.331-7",
+        nit="860.998.331",
         direccion="Carrera 15 # 88-64, Of. 502",
         ciudad="Bogotá D.C.",
         fecha="2026-02-20",
@@ -193,7 +203,7 @@ def generar_pdf(f: FacturaMuestra) -> Path:
     pdf.set_font("helvetica", "B", 15)
     pdf.cell(0, 9, f.proveedor, **_NL)
     pdf.set_font("helvetica", "", 10)
-    pdf.cell(0, 5, f"NIT: {f.nit}", **_NL)
+    pdf.cell(0, 5, f"NIT: {_nit_con_dv(f.nit)}", **_NL)
     pdf.cell(0, 5, f"{f.direccion} - {f.ciudad}", **_NL)
     pdf.ln(3)
 
@@ -247,7 +257,7 @@ def generar_excel(f: FacturaMuestra) -> Path:
 
     # Encabezado
     ws.append([f.proveedor])
-    ws.append([f"NIT: {f.nit}"])
+    ws.append([f"NIT: {_nit_con_dv(f.nit)}"])
     ws.append([f"{f.direccion} - {f.ciudad}"])
     ws.append([])
     ws.append(["Factura No.", f.numero_factura])
