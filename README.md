@@ -100,9 +100,13 @@ Los tests unitarios corren sin red (cliente de Gemini mockeado). Hay un test de 
 - La capa LLM es intercambiable (interfaz `LLMProvider`): hoy Gemini, con Claude como proveedor previsto.
 - Los montos usan `Decimal` para precisión contable; el Excel los muestra como números para que sean sumables.
 
+## Validación y calidad de datos
+
+- **NIT**: los NIT se normalizan a una forma canónica determinística (`<base>-<DV>`, sin puntos) y se validan contra el dígito de verificación de la DIAN (módulo 11). Un NIT con DV inconsistente se marca como advertencia en el resumen, sin descartar el dato (un DV malo no tumba una extracción por lo demás correcta).
+- **Montos**: usan `Decimal` para precisión contable, evitando los errores de redondeo del punto flotante.
+
 ## Roadmap / Limitaciones conocidas
 
-- **Normalización de NIT**: el modelo a veces omite los puntos separadores del NIT (los dígitos son correctos, solo varía el formato). Solución prevista: normalización determinística en post-proceso a un formato canónico, en lugar de depender del prompt.
 - Proveedor Claude (anthropic) como alternativa a Gemini.
 - Soporte para más layouts de factura y procesamiento por lotes más grande.
 
