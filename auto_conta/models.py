@@ -17,7 +17,9 @@ from decimal import Decimal
 from enum import Enum
 from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, Field, PlainSerializer
+from pydantic import BaseModel, Field, PlainSerializer, field_validator
+
+from auto_conta.normalize import normalizar_nit
 
 # Tipo de monto reutilizable: Decimal en Python, serializado como string SOLO
 # en JSON (when_used="json"), preservando precisión sin perder el tipo Decimal
@@ -74,3 +76,9 @@ class Factura(BaseModel):
     archivo_origen: Optional[str] = Field(
         default=None, description="Nombre del archivo desde el que se extrajo."
     )
+
+    @field_validator("nit")
+    @classmethod
+    def _normalizar_nit(cls, v: str) -> str:
+        """Lleva el NIT a forma canónica (solo reformatea; no valida el DV)."""
+        return normalizar_nit(v)

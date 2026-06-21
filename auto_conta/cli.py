@@ -19,6 +19,7 @@ from rich.table import Table
 from auto_conta.extractors import EXTENSIONES_SOPORTADAS, extraer
 from auto_conta.llm.base import crear_proveedor
 from auto_conta.models import Factura
+from auto_conta.normalize import validar_nit
 from auto_conta.report import generar_reporte
 
 console = Console()
@@ -60,7 +61,10 @@ def _buscar_archivos(carpeta: Path) -> List[Path]:
 
 
 def _imprimir_resumen(
-    procesadas: int, fallidos: List[Tuple[str, str]], reporte: Optional[Path]
+    procesadas: int,
+    fallidos: List[Tuple[str, str]],
+    nits_inconsistentes: List[str],
+    reporte: Optional[Path],
 ) -> None:
     tabla = Table(title="Resumen", show_header=True, header_style="bold")
     tabla.add_column("Métrica")
@@ -68,8 +72,16 @@ def _imprimir_resumen(
     tabla.add_row("Facturas procesadas", str(procesadas))
     tabla.add_row("Facturas fallidas", str(len(fallidos)))
     tabla.add_row("Total de archivos", str(procesadas + len(fallidos)))
+    tabla.add_row("NITs con DV inconsistente", str(len(nits_inconsistentes)))
     tabla.add_row("Reporte", str(reporte) if reporte else "[dim]no generado[/]")
     console.print(tabla)
+
+    if nits_inconsistentes:
+        console.print(
+            f"\n[bold yellow]⚠ NITs con DV inconsistente: {len(nits_inconsistentes)}[/]"
+        )
+        for nombre in nits_inconsistentes:
+            console.print(f"  [yellow]⚠[/] {nombre}")
 
     if fallidos:
         console.print("\n[bold yellow]Archivos con error:[/]")
@@ -107,11 +119,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     console.print(f"[bold]Procesando {len(archivos)} archivo(s) de[/] {carpeta}\n")
     facturas: List[Factura] = []
     fallidos: List[Tuple[str, str]] = []
+    nits_inconsistentes: List[str] = []
     for archivo in archivos:
         try:
             texto = extraer(archivo)
             factura = proveedor.estructurar_factura(texto, archivo_origen=archivo.name)
             facturas.append(factura)
+            # Advertencia de calidad de dato: el DV del NIT no cuadra (no detiene nada).
+            if not validar_nit(factura.nit):
+                nits_inconsistentes.append(archivo.name)
             console.print(f"  [green]✓[/] {archivo.name} → {factura.categoria.value}")
         except Exception as exc:  # noqa: BLE001 — un archivo no debe tumbar el lote
             fallidos.append((archivo.name, str(exc)))
@@ -128,7 +144,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # e. Resumen.
     console.print()
-    _imprimir_resumen(len(facturas), fallidos, reporte)
+    _imprimir_resumen(len(facturas), fallidos, nits_inconsistentes, reporte)
 
     return 0 if facturas else 1
 

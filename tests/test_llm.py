@@ -55,6 +55,8 @@ def test_estructurar_factura_con_cliente_mockeado(mock_client_cls):
     assert factura.proveedor == "Papelería El Lápiz Dorado S.A.S."
     assert factura.categoria == CategoriaContable.PAPELERIA_OFICINA
     assert factura.archivo_origen == "factura_papeleria.pdf"
+    # El field_validator normaliza el NIT a forma canónica (sin puntos).
+    assert factura.nit == "900451882-3"
 
     # Montos como Decimal, con precisión exacta (números y strings).
     assert isinstance(factura.total, Decimal)

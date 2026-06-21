@@ -20,11 +20,12 @@ SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 N_SAMPLES = 7  # 5 PDF + 2 XLSX
 
 
-def _factura_fake(origen: str | None) -> Factura:
+def _factura_fake(origen: str | None, nit: str = "900451882-9") -> Factura:
+    # nit por defecto con DV DIAN correcto (900451882 -> DV 9).
     return Factura(
         numero_factura=f"F-{origen}",
         proveedor=f"Proveedor {origen}",
-        nit="900.000.000-0",
+        nit=nit,
         fecha=date(2026, 2, 11),
         items=[
             ItemFactura(
@@ -47,6 +48,12 @@ class _FakeProvider:
         return _factura_fake(archivo_origen)
 
 
+class _FakeProviderNitInvalido:
+    def estructurar_factura(self, texto: str, archivo_origen: str | None = None) -> Factura:
+        # DV declarado (1) no coincide con el real (9): debe advertirse, no fallar.
+        return _factura_fake(archivo_origen, nit="900451882-1")
+
+
 class _FakeProviderConFallo:
     def __init__(self, archivo_que_falla: str) -> None:
         self.archivo_que_falla = archivo_que_falla
@@ -57,7 +64,7 @@ class _FakeProviderConFallo:
         return _factura_fake(archivo_origen)
 
 
-def test_cli_procesa_samples_y_genera_reporte(monkeypatch, tmp_path):
+def test_cli_procesa_samples_y_genera_reporte(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "crear_proveedor", lambda nombre="gemini": _FakeProvider())
     salida = tmp_path / "reporte.xlsx"
 
@@ -67,6 +74,24 @@ def test_cli_procesa_samples_y_genera_reporte(monkeypatch, tmp_path):
     assert salida.exists()
     detalle = pd.read_excel(salida, sheet_name="Facturas")
     assert len(detalle) == N_SAMPLES
+    # NIT canónico en el reporte y, con DV válido, sin advertencias (⚠).
+    assert set(detalle["nit"]) == {"900451882-9"}
+    assert "⚠" not in capsys.readouterr().out
+
+
+def test_cli_advierte_nit_dv_inconsistente(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        cli, "crear_proveedor", lambda nombre="gemini": _FakeProviderNitInvalido()
+    )
+    salida = tmp_path / "reporte.xlsx"
+
+    ret = cli.main([str(SAMPLES), "-o", str(salida)])
+
+    # DV inconsistente es advertencia, no error: procesa igual (exit 0).
+    assert ret == 0
+    out = capsys.readouterr().out
+    assert "⚠" in out
+    assert "DV inconsistente" in out
 
 
 def test_cli_continua_ante_fallo_de_un_archivo(monkeypatch, tmp_path, capsys):
